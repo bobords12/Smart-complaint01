@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Barangay Abuno Public Kiosk">
+  <!--
+    Maskable variant.
+
+    Maskable icons get cropped to whatever shape the launcher uses, and a
+    circle crop takes roughly the outer 20% on each side. So the artwork is
+    inset inside the safe zone and the background bleeds to all four edges,
+    with no border ring that a crop could slice through.
+  -->
+  <rect width="512" height="512" fill="#0E2F5C"/>
+  <text
+    x="256"
+    y="304"
+    text-anchor="middle"
+    font-family="Manrope, 'Segoe UI', Helvetica, Arial, sans-serif"
+    font-size="176"
+    font-weight="800"
+    letter-spacing="-6"
+    fill="#F0CE7E"
+  >AB</text>
+  <rect x="196" y="332" width="120" height="9" rx="4.5" fill="#FFFFFF" opacity="0.85"/>
+</svg>

@@ -1,0 +1,453 @@
+@layer components {
+  /* ── Kiosk shell ───────────────────────────────────────────
+     The kiosk is a fixed-width device at an unknown resolution, so
+     content is centred with a hard maximum rather than stretched.
+     720px is the widest a single-column form should ever get: past
+     that, a text input becomes hard to track with the eye. */
+  .kiosk-page {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-light);
+  }
+
+  .kiosk-main {
+    flex: 1;
+    width: 100%;
+    max-width: 720px;
+    margin-inline: auto;
+    padding: 20px 16px calc(104px + env(safe-area-inset-bottom));
+  }
+
+  @media (min-width: 768px) {
+    .kiosk-main {
+      padding: 28px 24px calc(112px + env(safe-area-inset-bottom));
+    }
+  }
+
+  /* Two columns are only for related SHORT fields. A narrative or an
+     address never splits, so that is opted into per component rather
+     than being the default. */
+  .kiosk-grid {
+    display: grid;
+    gap: 14px;
+  }
+
+  @media (min-width: 640px) {
+    .kiosk-grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  /* ── Header ──────────────────────────────────────────────── */
+  .kiosk-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--color-navy);
+    color: #ffffff;
+    box-shadow: 0 2px 12px rgb(14 47 92 / 18%);
+  }
+
+  .kiosk-header-bar {
+    max-width: 720px;
+    margin-inline: auto;
+    padding: 10px 16px calc(10px + env(safe-area-inset-top));
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .kiosk-progress-track {
+    height: 6px;
+    background: rgb(255 255 255 / 16%);
+  }
+
+  .kiosk-progress-fill {
+    height: 100%;
+    background: var(--color-gold-soft);
+    transition: width 320ms ease-out;
+  }
+
+  /* ── Cards ───────────────────────────────────────────────── */
+  .kiosk-card {
+    background: #ffffff;
+    border: 1px solid var(--color-line);
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgb(14 47 92 / 6%);
+  }
+
+  .kiosk-card-pad {
+    padding: 16px;
+  }
+
+  /* ── Buttons ─────────────────────────────────────────────── */
+  /* min-height 48px clears the 44px touch target the spec asks for,
+     with margin. Every interactive control in the kiosk uses these. */
+  .kiosk-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 12px 22px;
+    border-radius: 9999px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 140ms ease, border-color 140ms ease,
+      color 140ms ease, opacity 140ms ease;
+  }
+
+  .kiosk-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .kiosk-btn-primary {
+    background: var(--color-navy);
+    color: #ffffff;
+    border: 1px solid var(--color-navy);
+  }
+
+  .kiosk-btn-primary:not(:disabled):hover {
+    background: var(--color-secondary);
+    border-color: var(--color-secondary);
+  }
+
+  .kiosk-btn-gold {
+    background: var(--color-gold-soft);
+    color: var(--color-navy);
+    border: 1px solid var(--color-gold-soft);
+  }
+
+  .kiosk-btn-gold:not(:disabled):hover {
+    background: var(--color-gold);
+    border-color: var(--color-gold);
+  }
+
+  .kiosk-btn-ghost {
+    background: #ffffff;
+    color: var(--color-navy);
+    border: 1px solid var(--color-line);
+  }
+
+  .kiosk-btn-ghost:not(:disabled):hover {
+    border-color: var(--color-secondary);
+    color: var(--color-secondary);
+  }
+
+  .kiosk-btn-quiet {
+    background: transparent;
+    color: var(--color-navy);
+    border: 1px solid transparent;
+  }
+
+  .kiosk-btn-quiet:not(:disabled):hover {
+    background: var(--color-alt);
+  }
+
+  .kiosk-btn-block {
+    width: 100%;
+  }
+
+  /* ── Fields ──────────────────────────────────────────────── */
+  .kiosk-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--color-mirage);
+  }
+
+  .kiosk-input {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--color-line);
+    background: #ffffff;
+    font-size: 16px; /* 16px stops iOS Safari zooming on focus */
+    line-height: 1.4;
+    color: var(--color-mirage);
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+
+  .kiosk-input::placeholder {
+    color: color-mix(in srgb, var(--color-muted) 65%, transparent);
+  }
+
+  .kiosk-input:focus-visible {
+    outline: none;
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 0 3px rgb(27 76 140 / 18%);
+  }
+
+  .kiosk-input:disabled {
+    background: var(--color-alt);
+    color: var(--color-muted);
+    cursor: not-allowed;
+  }
+
+  .kiosk-input-invalid,
+  .kiosk-input-invalid:focus-visible {
+    border-color: var(--color-critical);
+    box-shadow: 0 0 0 3px rgb(181 73 59 / 16%);
+  }
+
+  .kiosk-textarea {
+    min-height: 168px;
+    resize: vertical;
+  }
+
+  .kiosk-error-text {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--color-critical);
+  }
+
+  .kiosk-hint {
+    margin-top: 6px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--color-muted);
+  }
+
+  /* ── Choice tiles (Yes/No, other party, evidence method) ──
+     A radio input, not a button: keyboard arrow keys, screen-reader
+     grouping and form semantics all come free. */
+  .kiosk-choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    min-height: 56px;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--color-line);
+    background: #ffffff;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 140ms ease, background-color 140ms ease;
+  }
+
+  .kiosk-choice:hover {
+    border-color: var(--color-secondary);
+  }
+
+  .kiosk-choice-checked {
+    border-color: var(--color-navy);
+    background: var(--color-alt);
+    box-shadow: inset 0 0 0 1px var(--color-navy);
+  }
+
+  .kiosk-choice-invalid {
+    border-color: var(--color-critical);
+    box-shadow: inset 0 0 0 1px var(--color-critical);
+  }
+
+  /* ── Bottom navigation ───────────────────────────────────── */
+  /* Fixed, with the padding reserved in .kiosk-main, so it can never
+     cover a field the citizen is looking at. */
+  .kiosk-bottom {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 25;
+    background: rgb(255 255 255 / 96%);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--color-line);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .kiosk-bottom-inner {
+    max-width: 720px;
+    margin-inline: auto;
+    display: flex;
+    gap: 10px;
+  }
+
+  /* ── Badges ──────────────────────────────────────────────── */
+  .kiosk-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.6;
+    white-space: nowrap;
+  }
+
+  .kiosk-badge-pending {
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
+  }
+
+  .kiosk-badge-active {
+    background: var(--color-info-soft);
+    color: var(--color-secondary);
+  }
+
+  .kiosk-badge-done {
+    background: var(--color-success-soft);
+    color: var(--color-success);
+  }
+
+  .kiosk-badge-rejected {
+    background: var(--color-critical-soft);
+    color: var(--color-critical);
+  }
+
+  /* ── Modal ───────────────────────────────────────────────────
+     Screen 17's inactivity dialog. The overlay is deliberately dark
+     and opaque rather than translucent: on an unattended hall screen
+     the point is that nobody standing behind the citizen can read the
+     half-finished complaint through it.
+
+     The panel is capped against BOTH viewport axes. A modal that is
+     taller than a 568px-tall phone in landscape clips its own button,
+     which on this screen would strand the citizen with no way to say
+     they are still there and no way to dismiss it either. */
+  .kiosk-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    overflow-y: auto;
+    background: rgb(11 33 68 / 82%);
+  }
+
+  .kiosk-modal-panel {
+    width: 100%;
+    max-width: 400px;
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    padding: 26px 22px 22px;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 12px 40px rgb(0 0 0 / 35%);
+    animation: kiosk-overlay-in 160ms ease-out both;
+  }
+
+  /* ── Focus visibility on dark surfaces ───────────────────── */
+  .kiosk-header :focus-visible {
+    outline: 2px solid var(--color-gold-soft);
+    outline-offset: 2px;
+  }
+}
+
+/* Animation for the reviewing transition and the QR spinner. */
+@keyframes kiosk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes kiosk-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes kiosk-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.kiosk-spin {
+  animation: kiosk-spin 900ms linear infinite;
+}
+
+.kiosk-pulse {
+  animation: kiosk-pulse 1.4s ease-in-out infinite;
+}
+
+.kiosk-overlay {
+  animation: kiosk-overlay-in 160ms ease-out both;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Print: the acknowledgment receipt only.
+   Everything interactive is hidden, and the page is forced to light
+   ink so the QR and the tracking number survive a black-and-white
+   printer. ───────────────────────────────────────────────────────── */
+@media print {
+  .kiosk-no-print {
+    display: none !important;
+  }
+
+  .kiosk-page {
+    background: #ffffff !important;
+    min-height: auto !important;
+  }
+
+  .kiosk-main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .kiosk-receipt {
+    border: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+  }
+
+  .kiosk-receipt * {
+    color: #000000 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  /* The logo and QR must stay legible, so their frame is kept and
+     forced to a visible rule rather than a light fill. */
+  .kiosk-receipt img,
+  .kiosk-receipt svg {
+    filter: grayscale(100%) contrast(150%);
+  }
+
+  .kiosk-receipt [data-print-box="true"] {
+    border: 1px solid #000000 !important;
+    background: #ffffff !important;
+  }
+
+  .kiosk-receipt section,
+  .kiosk-receipt footer {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+/* The kiosk is not a dark-mode surface. The project has a dark theme
+   for the resident portal; a public kiosk in a dim hall needs a
+   predictable light background, so dark variants are neutralised
+   inside the kiosk subtree only. */
+.kiosk-root {
+  color-scheme: light;
+}
+
+.kiosk-root .bg-window,
+.kiosk-root .bg-sidebar {
+  background: var(--color-light) !important;
+}

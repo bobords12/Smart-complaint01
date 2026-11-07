@@ -1,0 +1,86 @@
+-- ============================================================
+-- 14_rls_policies.sql
+-- Purpose: Consolidated summary of all RLS policies created
+--          above. This file is for reference only — policies
+--          are already created with their respective tables.
+--
+--          DO NOT run this file separately. It is a summary.
+-- ============================================================
+
+-- ╔══════════════════════════════════════════════════════════╗
+-- ║  RLS POLICY SUMMARY                                      ║
+-- ╠══════════════════════════════════════════════════════════╣
+-- ║                                                          ║
+-- ║  profiles                                                ║
+-- ║    ✓ SELECT  — residents read own profile                ║
+-- ║    ✓ UPDATE  — residents update own allowed fields       ║
+-- ║    ✗ INSERT  — trigger only                              ║
+-- ║    ✗ DELETE  — not allowed                               ║
+-- ║                                                          ║
+-- ║  resident_profiles                                       ║
+-- ║    ✓ SELECT  — residents read own                        ║
+-- ║    ✓ UPDATE  — residents update own                      ║
+-- ║    ✗ INSERT  — trigger only                              ║
+-- ║    ✗ DELETE  — not allowed                               ║
+-- ║                                                          ║
+-- ║  complaints                                              ║
+-- ║    ✓ SELECT  — residents read own                        ║
+-- ║    ✓ INSERT  — residents insert own (resident_id = uid)  ║
+-- ║    ✗ UPDATE  — no direct update for residents            ║
+-- ║    ✗ DELETE  — not allowed                               ║
+-- ║                                                          ║
+-- ║  evidence                                                ║
+-- ║    ✓ SELECT  — residents read for own complaints         ║
+-- ║    ✓ INSERT  — residents attach to own complaints        ║
+-- ║    ✓ DELETE  — own evidence while complaint editable     ║
+-- ║    ✗ UPDATE  — not needed                                ║
+-- ║                                                          ║
+-- ║  complaint_classification_logs                           ║
+-- ║    ✓ SELECT  — residents read for own complaints         ║
+-- ║    ✗ INSERT/UPDATE/DELETE — staff only                   ║
+-- ║                                                          ║
+-- ║  complaint_reviews                                       ║
+-- ║    ✓ SELECT  — residents read for own complaints         ║
+-- ║    ✗ INSERT/UPDATE/DELETE — staff only                   ║
+-- ║                                                          ║
+-- ║  case_statuses                                           ║
+-- ║    ✓ SELECT  — residents read for own complaints         ║
+-- ║    ✗ INSERT/UPDATE/DELETE — staff only                   ║
+-- ║                                                          ║
+-- ║  kp_trackers                                             ║
+-- ║    ✓ SELECT  — residents read for own complaints         ║
+-- ║    ✗ INSERT/UPDATE/DELETE — staff only                   ║
+-- ║                                                          ║
+-- ║  kp_phases                                               ║
+-- ║    ✓ SELECT  — residents read for own complaints         ║
+-- ║    ✗ INSERT/UPDATE/DELETE — staff only                   ║
+-- ║                                                          ║
+-- ║  hearings                                                ║
+-- ║    ✓ SELECT  — residents read for own complaints         ║
+-- ║    ✗ INSERT/UPDATE/DELETE — staff only                   ║
+-- ║                                                          ║
+-- ║  summons                                                 ║
+-- ║    ✓ SELECT  — residents read for own complaints         ║
+-- ║    ✗ INSERT/UPDATE/DELETE — staff only                   ║
+-- ║                                                          ║
+-- ║  notifications                                           ║
+-- ║    ✓ SELECT  — residents read own                        ║
+-- ║    ✓ UPDATE  — residents toggle read_at only             ║
+-- ║    ✗ INSERT/DELETE — system/staff only                   ║
+-- ║                                                          ║
+-- ║  case_inquiries                                          ║
+-- ║    ✓ SELECT  — residents read own                        ║
+-- ║    ✓ INSERT  — residents create for own complaints       ║
+-- ║    ✗ UPDATE  — staff only (response)                     ║
+-- ║    ✗ DELETE  — not allowed                               ║
+-- ║                                                          ║
+-- ║  resident_settings                                       ║
+-- ║    ✓ SELECT  — residents read own                        ║
+-- ║    ✓ UPDATE  — residents update own                      ║
+-- ║    ✗ INSERT  — trigger only                              ║
+-- ║    ✗ DELETE  — not allowed                               ║
+-- ║                                                          ║
+-- ║  audit_logs                                              ║
+-- ║    ✗ ALL     — no Resident access (no policies)          ║
+-- ║                                                          ║
+-- ╚══════════════════════════════════════════════════════════╝

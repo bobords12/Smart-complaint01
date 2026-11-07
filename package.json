@@ -1,0 +1,39 @@
+{
+  "name": "scbms",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/start-kiosk-local.mjs",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "evaluate:classifier": "node scripts/evaluate-classifier.mjs",
+    "test:reklamo": "node scripts/test-reklamo.mjs",
+    "test:actions": "node scripts/test-actions.mjs",
+    "test:kiosk-sms": "node scripts/test-kiosk-sms.mjs",
+    "test:deployment": "node --test scripts/test-classification-save.mjs scripts/test-categorization-stage.mjs scripts/test-kiosk-origin.mjs scripts/test-ml-integration.mjs scripts/test-schedule-error-message.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.116.0",
+    "docx": "^9.9.0",
+    "docx-preview": "^0.4.1",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^1.45.0",
+    "next": "16.3.5",
+    "pizzip": "^3.3.0",
+    "qrcode.react": "^4.2.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-hot-toast": "^2.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^26.5.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "^4"
+  }
+}

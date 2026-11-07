@@ -1,0 +1,100 @@
+-- ============================================================
+-- captain_workflow_categorization_stage.sql
+-- Purpose: Add the missing "For Official Categorization"
+--          processing stage to the complaint_status enum so the
+--          Captain Portal can run the required staged workflow:
+--
+--            1. Complaint Submitted
+--            2. Information and Applicability Check
+--            3. Receive or Reject Complaint
+--            4. Official Category and Urgency Confirmation
+--            5. Summons and Hearing Processing
+--            6. Mediation or Pangkat Proceedings
+--            7. Resolution, Referral, or Case Closure
+--
+-- WHY THIS IS REQUIRED:
+--   The existing complaint_status enum is
+--     'Pending Review','Received','In Progress',
+--     'Awaiting Meeting','Resolved','Closed','Rejected'
+--   Steps 1-2 map to 'Pending Review', step 5 to 'Received',
+--   step 6 to 'In Progress', and step 7 to a terminal value.
+--   There is NO existing value for step 4: previously the
+--   "receive" action wrote 'In Progress' + 'Mediation' in a
+--   single step, which silently skipped the official
+--   categorization gate and left the AI prediction as the only
+--   classification on record. 'For Official Categorization' is
+--   therefore genuinely new, not a duplicate, and is appended to
+--   the end of the enum so existing ordinals are never reused.
+--
+--   Already-applied migrations are NOT edited. This is a new,
+--   separately applicable file.
+--
+-- Safety:  Fully additive and idempotent.
+--          No table is altered, no row is updated or deleted,
+--          and existing enum ordinals keep their position.
+--          ADD VALUE ... IF NOT EXISTS is used so re-running
+--          this file is safe.
+--
+--          NOTE: PostgreSQL cannot use a new enum value in the
+--          same transaction that adds it. This file therefore
+--          runs the ALTER TYPE ... ADD VALUE on its own, and the
+--          read-only verification SELECT is a separate
+--          statement. Run the whole file as a single query
+--          batch; if the editor reports
+--          "unsafe use of new value", re-run just the
+--          verification SELECT below.
+--
+-- PREREQUISITES:
+--   1. Files 01-23 must already be applied.
+--   2. No RLS, trigger, or policy change is included, so no
+--      role re-grant is required.
+--
+-- HOW TO APPLY (Supabase Dashboard > SQL Editor):
+--   1. Open SQL Editor > New query.
+--   2. Paste this entire file.
+--   3. Click Run.
+--   4. Expected: Success. Section B should return exactly one
+--      row per enum value, with 'For Official Categorization'
+--      last.
+-- ============================================================
+
+-- ──────────────────────────────────────────────────────────────
+-- A. Append the missing stage to complaint_status
+-- ──────────────────────────────────────────────────────────────
+-- Appended last on purpose: enum values are ordered by their
+-- declaration, so existing values keep their ordinals.
+ALTER TYPE public.complaint_status
+  ADD VALUE IF NOT EXISTS 'For Official Categorization';
+
+-- ──────────────────────────────────────────────────────────────
+-- B. Verification
+-- ──────────────────────────────────────────────────────────────
+-- Expect 8 rows. 'For Official Categorization' must be last.
+-- Run this as a separate statement if the editor reports an
+-- "unsafe use of new value" error on the statement above.
+SELECT enumlabel AS complaint_status, enumsortorder AS ordinal
+FROM pg_enum
+WHERE enumtypid = 'public.complaint_status'::regtype
+ORDER BY enumsortorder;
+
+-- ──────────────────────────────────────────────────────────────
+-- C. Not required here - recorded so the mapping is auditable
+-- ──────────────────────────────────────────────────────────────
+-- 'encoded_by_role' is deliberately NOT added.
+-- 23_staff_assisted_complaint_filing.sql already stores
+-- complaints.encoded_by as a uuid FK to public.profiles(id),
+-- and profiles.role already holds the encoder's role
+-- ('captain' | 'oic' | 'secretary'). Adding a second role
+-- column would duplicate an existing normalized value and could
+-- drift from it. Retrieve the encoder's role by joining:
+--
+--   SELECT c.reference_number, p.display_name, p.role
+--   FROM public.complaints c
+--   LEFT JOIN public.profiles p ON p.id = c.encoded_by
+--   WHERE c.filing_channel = 'barangay_hall';
+--
+-- Likewise no new column is needed for the categorization
+-- decision itself: 04_complaints.sql already provides
+-- confirmed_category, confirmed_case_type and
+-- confirmed_urgency for the official value, alongside the
+-- predicted_* columns that keep the AI recommendation.

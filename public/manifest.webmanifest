@@ -1,0 +1,35 @@
+{
+  "name": "Barangay Abuno Public Kiosk",
+  "short_name": "Abuno Kiosk",
+  "description": "File a barangay complaint at the Barangay Abuno Hall without an account.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F8FAFC",
+  "theme_color": "#0E2F5C",
+  "lang": "en-PH",
+  "dir": "ltr",
+  "categories": ["government", "utilities"],
+  "icons": [
+    {
+      "src": "/Abunoi.jpg",
+      "sizes": "612x612",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/kiosk-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/kiosk-icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

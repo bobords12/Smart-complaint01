@@ -1,0 +1,136 @@
+-- ============================================================
+-- kiosk-09-sms-sweeper-cron.sql
+-- Purpose: An OPTIONAL database-side sweeper that delivers
+--          confirmation SMS jobs that are still waiting.
+--
+-- READ THIS FIRST:
+--   The feature does not need this file. When a kiosk complaint is
+--   filed, the Next.js server queues the job and asks the edge
+--   worker to deliver it immediately. This file only adds a second,
+--   independent path for the rare case where that immediate attempt
+--   did not happen (a server restart, a redeploy in progress, a
+--   dropped connection between the commit and the dispatch).
+--
+--   Two ways to run the sweeper exist. Pick ONE.
+--
+--   OPTION A (recommended): the Vercel cron on the Next.js app.
+--     - Add a CRON_SECRET environment variable in Vercel.
+--     - Add this to vercel.json:
+--         { "crons": [ { "path": "/api/kiosk/sms/sweep",
+--                         "schedule": "*/5 * * * *" } ] }
+--     - The secret stays in the application's environment. Nothing
+--       sensitive is stored in the database, and the route is
+--       already closed when CRON_SECRET is missing.
+--     - Vercel sends: Authorization: Bearer $CRON_SECRET
+--
+--   OPTION B: this file, using pg_cron + pg_net + Supabase Vault.
+--     - Needs the pg_cron and pg_net extensions and a Vault secret.
+--     - The service-role token is then stored INSIDE the database.
+--     - Some Supabase plans do not expose pg_cron to the SQL editor
+--       and it must be enabled from the Dashboard instead.
+--
+--   Run neither until the deployment is live and a first manual
+--   send has been verified on a handset.
+--
+-- NOT APPLIED YET. Review before running.
+-- ============================================================
+
+-- ──────────────────────────────────────────────────────────────
+-- A. Extensions
+--
+-- pg_cron schedules the job. pg_net performs the HTTP call. Vault
+-- holds the token so it is not written in plain text here.
+-- ──────────────────────────────────────────────────────────────
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+
+-- pg_cron usually has to be enabled from the Supabase Dashboard
+-- (Database -> Extensions) because it needs pg_cron in the
+-- preloaded library list. If this statement fails with
+-- "extension pg_cron is not available", enable it in the Dashboard
+-- and run this file again.
+-- CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- ──────────────────────────────────────────────────────────────
+-- B. The secret
+--
+-- The worker refuses anybody whose token is not a service-role
+-- token, so this is the service-role key from the Supabase project
+-- settings. Store it in Vault, never in a table and never in a
+-- comment.
+--
+-- Run this from the SQL editor ONCE, with the real value:
+--
+--   SELECT vault.create_secret(
+--     '<YOUR SERVICE_ROLE KEY>',
+--     'kiosk_sms_worker_token',
+--     'Bearer token for the kiosk SMS edge function'
+--   );
+--
+-- To read it back while testing (and only while testing):
+--   SELECT decrypted_secret FROM vault.decrypted_secrets
+--    WHERE name = 'kiosk_sms_worker_token';
+-- ──────────────────────────────────────────────────────────────
+
+-- ──────────────────────────────────────────────────────────────
+-- C. The scheduled call
+--
+-- Every five minutes the sweeper asks the edge function to deliver
+-- whatever is waiting. The function itself decides what to send and
+-- refuses to send twice, so running this job often is safe.
+--
+-- Replace the URL with this project's Supabase URL.
+-- ──────────────────────────────────────────────────────────────
+-- DO $$
+-- DECLARE
+--   v_url text := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/send-kiosk-confirmation-sms';
+--   v_token text;
+-- BEGIN
+--   SELECT decrypted_secret INTO v_token
+--     FROM vault.decrypted_secrets
+--    WHERE name = 'kiosk_sms_worker_token';
+--
+--   IF v_token IS NULL THEN
+--     RAISE EXCEPTION 'vault secret kiosk_sms_worker_token is missing';
+--   END IF;
+--
+--   PERFORM cron.unschedule('kiosk-sms-sweeper');
+--
+--   PERFORM cron.schedule(
+--     'kiosk-sms-sweeper',
+--     '*/5 * * * *',
+--     format(
+--       'select net.http_post(url := %L, headers := jsonb_build_object(''Content-Type'', ''application/json'', ''Authorization'', ''Bearer %s''), body := jsonb_build_object(''limit'', 20));',
+--       v_url,
+--       v_token
+--     )
+--   );
+-- END;
+-- $$;
+
+-- ──────────────────────────────────────────────────────────────
+-- D. Verification
+--
+-- 1. The schedule exists.
+--
+-- SELECT jobid, schedule, command FROM cron.job
+--  WHERE jobname = 'kiosk-sms-sweeper';
+--
+-- 2. The secret is present (the value is NOT printed).
+--
+-- SELECT name, created_at FROM vault.secrets
+--  WHERE name = 'kiosk_sms_worker_token';
+--
+-- 3. The sweeper is really calling the function.
+--
+-- SELECT id, status, request_time, status_code, error_msg
+--   FROM net._http_response
+--  ORDER BY id DESC
+--  LIMIT 10;
+--
+-- 4. Nothing is stuck.
+--
+-- SELECT status, count(*), min(created_at) AS oldest
+--   FROM public.kiosk_sms_outbox
+--  GROUP BY status
+--  ORDER BY status;
+-- Expect: no row sitting in 'pending' for more than a few minutes.

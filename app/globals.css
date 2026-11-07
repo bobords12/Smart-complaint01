@@ -1,0 +1,443 @@
+@import "tailwindcss";
+
+@theme {
+  /* Typography */
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-manrope), var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand colors */
+  --color-navy: #0e2f5c;
+  --color-secondary: #1b4c8c;
+  --color-gold: #d9a62e;
+  --color-gold-soft: #f0ce7e;
+  --color-paledgold: #fbf0dd;
+  --color-bourbon: #b7791f;
+  --color-light: #f8fafc;
+  --color-alt: #e7eef7;
+  --color-muted: #5c697f;
+  --color-mirage: #182233;
+  --color-jordy: #8fadf0;
+
+  /* Urgency */
+  --color-normal: #2e7d6b;
+  --color-critical: #b5493b;
+
+  /* Resident dashboard */
+  --color-canvas: #f6f9ff;
+  --color-action: #2563b0;
+  --color-success: #17774e;
+  --color-success-soft: #e4f2ea;
+  --color-warning: #b45309;
+  --color-warning-soft: #fdeedb;
+  --color-critical-soft: #fbeae7;
+  --color-info-soft: #e7eef7;
+  --color-navactive: #1d4f94;
+
+  /* Borders */
+  --color-line: #dce3ee;
+  --color-cardline: #444444;
+  --color-edge: #101f3d;
+
+  /* Dashboard window */
+  --color-window: #0b2144;
+  --color-windowbar: #0f274d;
+  --color-sidebar: #0e2444;
+
+  /* Footer text */
+  --color-mantle: #8fa096;
+  --color-ash: #b9c7bc;
+  --color-tasman: #c9d6cc;
+
+  /* Shadows */
+  --shadow-feather: 0px 4px 50px rgba(0, 0, 0, 0.08);
+  --shadow-soft: 0px 4px 50px rgba(0, 0, 0, 0.1);
+  --shadow-float: 0px 4px 50px rgba(0, 0, 0, 0.25);
+  --shadow-button: 0px 4px 20px rgba(0, 0, 0, 0.25);
+  --shadow-stat: 0px 4px 50px rgba(0, 0, 0, 0.2);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-light);
+    color: var(--color-mirage);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: clip;
+  }
+
+  ::selection {
+    background-color: var(--color-secondary);
+    color: #ffffff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* Anchored sections need offset for the sticky navbar */
+[id] {
+  scroll-margin-top: 5.5rem;
+}
+
+/* Authentication modal transitions */
+@keyframes auth-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes auth-card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes auth-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes auth-card-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.98) translateY(4px);
+  }
+}
+
+.auth-overlay {
+  animation: auth-overlay-in 180ms ease-out both;
+}
+
+.auth-card {
+  animation: auth-card-in 180ms ease-out both;
+}
+
+.auth-overlay-closing {
+  animation: auth-overlay-out 140ms ease-in both;
+}
+
+.auth-card-closing {
+  animation: auth-card-out 140ms ease-in both;
+}
+
+/* Reusable centered container mirroring the 1180px Figma frame */
+@layer components {
+  .container-scbms {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 1180px;
+    padding-inline: 1rem;
+  }
+
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 0.75rem;
+    line-height: 1;
+    letter-spacing: 0.105rem;
+    text-transform: uppercase;
+    color: var(--color-gold);
+  }
+}
+
+/* Resident dashboard modal + dropdown entrance */
+@keyframes modal-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-overlay {
+  animation: modal-overlay-in 150ms ease-out both;
+}
+
+.modal-panel {
+  animation: modal-panel-in 180ms ease-out both;
+}
+
+.pop-menu {
+  transform-origin: top right;
+  animation: modal-panel-in 160ms ease-out both;
+}
+
+/* ── In-app document viewer (components/shared/DocumentViewerModal) ──────
+   docx-preview lays Word pages out on its own gray backdrop. That backdrop
+   is overridden here so a document opened in the dialog reads as a sheet on
+   the application's canvas rather than as a foreign viewer's page. The
+   rules are scoped to .document-sheet-stage so they cannot leak into any
+   other part of the app, including @media print. */
+.document-sheet-stage .docx-wrapper {
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.25rem 0 1.5rem;
+}
+
+/* The page selector needs one more class of specificity than docx-preview's
+   own `.docx-wrapper>section.docx`: its stylesheet is injected into the stage
+   at render time, so it lands after this file in document order and would win
+   a tie. Scoping the extra class here keeps the overrides in force. */
+.document-sheet-stage .docx-wrapper > section.docx {
+  background: #ffffff;
+  margin: 0;
+  border-radius: 3px;
+  box-shadow:
+    0 1px 2px rgba(11, 33, 68, 0.1),
+    0 10px 28px rgba(11, 33, 68, 0.14);
+  /* docx-preview already positions this element, so this turns the page into
+     a stacking context. lib/documents/docxLayering.js pushes Word's
+     behind-the-text pictures back with a negative z-index, and without a
+     context on the page itself they would resolve against the dialog far up
+     the tree and fall behind the white sheet — invisible rather than merely
+     underneath the type. */
+  z-index: 0;
+}
+
+/* A Word page is sized in real page units, so on a phone it is wider than
+   the dialog. Let it scroll sideways at full size instead of squashing the
+   letterhead; the zoom control in the toolbar is the way to fit it. */
+.document-sheet-stage {
+  min-width: min-content;
+}
+
+/* docx-preview draws a floating image — the letterhead logo, the watermark —
+   inside a 0px-high inline-block and shifts it with left/top. That box is
+   inline-block, so it aligns on its baseline by default, and for an
+   inline-block the browser takes the baseline from the image it contains:
+   821px below the box for this watermark. The paragraph then grew to 826px to
+   hold that baseline, which stretched the sheet from Letter (1056px) to
+   1843px and opened a blank gap between the letterhead and the body. Aligning
+   those boxes to the top of the line box leaves the painted offset exactly as
+   docx-preview calculated it while taking the box back out of the line box's
+   height. Selectors match the literal inline style docx-preview emits, so
+   only floating-image wrappers are affected — an image set inline with text
+   is a bare <img> and is left alone. */
+.document-sheet-stage div[style*="height: 0px"][style*="inline-block"] {
+  vertical-align: top;
+}
+
+/* Tailwind's preflight styles every <img> on the page for responsive layout.
+   Inside a rendered Word page that is wrong twice over: docx-preview puts a
+   floating image in a 0px-wide wrapper and gives it an explicit inline size,
+   so `max-width: 100%` computes against that zero-width box and collapses the
+   letterhead logo and watermark to zero width; and `display: block` lifts an
+   image that belongs in a line of text out of it. The sizes are already set
+   inline by the renderer, so the reset below only hands the box model back. */
+.document-sheet-stage img {
+  max-width: none;
+  display: inline;
+  vertical-align: baseline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print styles for complaint summary */
+@media print {
+  body {
+    background: white !important;
+  }
+
+  nav,
+  aside,
+  header,
+  .no-print,
+  button,
+  [data-print-hidden="true"] {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-break-before {
+    page-break-before: always;
+  }
+}
+
+/* A4 Reklamo Form: grayscale-safe, no colour dependence, no clipped rows */
+@page {
+  size: A4 portrait;
+  margin: 12mm 12mm 14mm;
+}
+
+.reklamo-page {
+  box-shadow: none !important;
+  ring: none !important;
+}
+
+@media print {
+  .reklamo-print-host {
+    position: static !important;
+    display: block !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  .reklamo-print-host > div {
+    padding: 0 !important;
+  }
+
+  .reklamo-page {
+    max-width: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11pt !important;
+    line-height: 1.45 !important;
+    color: #000 !important;
+    background: #fff !important;
+    border: 0 !important;
+  }
+
+  .reklamo-page * {
+    color: #000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .reklamo-page p,
+  .reklamo-page li,
+  .reklamo-page dd,
+  .reklamo-page dt {
+    orphans: 3;
+    widows: 3;
+  }
+
+  .reklamo-page section,
+  .reklamo-page footer,
+  .reklamo-page header {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .reklamo-page [class*="border-"] {
+    border-color: #000 !important;
+  }
+}
+
+.print-only {
+  display: none;
+}
+
+/* ── Sidebar auto-hide scrollbar ─────────────────────────────────
+   The sidebar <nav> scroll containers carry `sidebar-scrollbar`;
+   useAutoHideScrollbar adds `sidebar-scrollbar-visible` while the
+   user scrolls and removes it 800ms after they stop.
+
+   Only colours change when the class toggles — the track and thumb
+   keep their size in both states — so revealing or hiding the
+   scrollbar never shifts the sidebar layout, and scrolling stays
+   fully functional (wheel, touchpad, touch, keyboard) because the
+   element keeps `overflow-y-auto`.
+
+   Chromium/Edge/Safari: ::-webkit-scrollbar, styled transparent while
+   idle. Firefox is gated behind @supports (-moz-appearance: none)
+   because Firefox is the only engine that matches it; without the
+   gate, Firefox-only `scrollbar-width` would make Blink ignore the
+   ::-webkit-scrollbar rules above it. */
+
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* No arrow buttons: they would stay visible while idle and cannot be
+   recoloured reliably, and they are not part of the required
+   scrolling affordances. */
+.sidebar-scrollbar::-webkit-scrollbar-button {
+  display: none;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  transition: background-color 140ms ease-out;
+}
+
+.sidebar-scrollbar.sidebar-scrollbar-visible::-webkit-scrollbar-thumb {
+  background-color: rgb(255 255 255 / 45%);
+}
+
+.sidebar-scrollbar.sidebar-scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(255 255 255 / 65%);
+}
+
+@supports (-moz-appearance: none) {
+  .sidebar-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 140ms ease-out;
+  }
+
+  .sidebar-scrollbar.sidebar-scrollbar-visible {
+    scrollbar-color: rgb(255 255 255 / 45%) rgb(255 255 255 / 10%);
+  }
+}

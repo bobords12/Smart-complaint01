@@ -1,0 +1,16 @@
+# Supabase configuration for this project.
+#
+# Only the parts this project actually uses are declared. The CLI
+# accepts a minimal file, and a minimal file is easier to review than
+# a generated one with every default spelled out.
+#
+# The function below keeps JWT verification ON. It is a server-side
+# worker: it reads complaints, it holds the PhilSMS credentials and it
+# can send messages, so an unauthenticated caller must never reach it.
+# Turning verification off would make the function reachable by anybody
+# who knows its URL.
+
+project_id = "hkayaevkpszmlvdhawql"
+
+[functions.send-kiosk-confirmation-sms]
+verify_jwt = true

@@ -1,0 +1,31 @@
+-- ============================================================
+-- 16_optional_seed_data.sql
+-- Purpose: Optional seed data for development and testing.
+--          DO NOT run in production.
+-- Safety:  all inserts use ON CONFLICT to prevent duplicates.
+-- ============================================================
+
+-- ⚠️  WARNING: This file is for development only.
+-- Do NOT execute against your production Supabase project.
+
+-- Seed data would include:
+-- - Test complaints with various statuses
+-- - Sample hearings
+-- - Sample notifications
+-- - Sample KP trackers and phases
+--
+-- Since complaints require real Auth user IDs,
+-- seed data should be created via the application
+-- after registering test accounts through Supabase Auth.
+--
+-- To create a test resident:
+-- 1. Register via the application at /register
+-- 2. The trigger will auto-create profiles + resident_profiles
+-- 3. Then create complaints via the UI
+--
+-- For staff/captain accounts:
+-- 1. Register a regular account
+-- 2. Manually update the role in the profiles table:
+--    UPDATE profiles SET role = 'captain' WHERE id = '<user-uuid>';
+-- 3. Update account_status if needed:
+--    UPDATE profiles SET account_status = 'active' WHERE id = '<user-uuid>';
