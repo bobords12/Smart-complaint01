@@ -85,6 +85,140 @@ const MAX_ATTEMPTS = 6;
 /** Backoff in ms, parallel to BACKOFF_MS in lib/kiosk/sync.js. */
 const BACKOFF_MS = [0, 2000, 5000, 15000, 30000, 60000];
 
+// ─────────────────────────────────────────────────────────────
+// Retryable-versus-terminal classification.
+//
+// These mirror KioskRequestError.retryable in lib/kiosk/api.js and MUST
+// stay in step with it: the page engine and this worker drain the same
+// queue, and a filing that one engine retries while the other parks is a
+// filing that ends up in the wrong state depending on which one ran last.
+// They are duplicated rather than imported for the same reason the queue
+// constants above are: this file is a classic script with no build step.
+// ─────────────────────────────────────────────────────────────
+
+/** Codes that mean "the service could not answer", not "the payload is wrong". */
+const RETRYABLE_CODES = new Set([
+  "network",
+  "unavailable",
+  "upload_failed",
+  "unconfirmed",
+  "rate_limited",
+]);
+
+/** Throttling and gateway statuses this client does not own. */
+const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
+
+/** The one rate-limit message the kiosk SQL raises (see kiosk-02). */
+const RATE_LIMIT_MESSAGE = /^too many/i;
+
+/** Cooldown when the server refuses a rate-limited submission with no
+ *  Retry-After. Parallel to RATE_LIMIT_COOLDOWN_MS in lib/kiosk/sync.js. */
+const RATE_LIMIT_COOLDOWN_MS = 5 * 60 * 1000;
+
+/** Bounds for a server-supplied Retry-After. */
+const RETRY_AFTER_MIN_MS = 30 * 1000;
+const RETRY_AFTER_MAX_MS = 30 * 60 * 1000;
+
+/** When the device's submission budget next allows another attempt.
+ *  Parallel to rateLimitedUntil in lib/kiosk/sync.js (each engine keeps
+ *  its own copy because neither can share state with the other). */
+let rateLimitedUntil = 0;
+
+function deferMs(retryAfterMs) {
+  const asked = Number.isFinite(retryAfterMs) ? retryAfterMs : RATE_LIMIT_COOLDOWN_MS;
+  return Math.min(Math.max(asked, RETRY_AFTER_MIN_MS), RETRY_AFTER_MAX_MS);
+}
+
+/** `Retry-After` in ms; seconds or an HTTP-date. Mirrors parseRetryAfter
+ *  in lib/kiosk/api.js. */
+function parseRetryAfter(headers) {
+  const raw = typeof headers?.get === "function" ? headers.get("retry-after") : null;
+  if (!raw) return null;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const at = Date.parse(raw);
+  return Number.isNaN(at) ? null : Math.max(0, at - Date.now());
+}
+
+/**
+ * Decides what a refused submit means: retry, defer, or park.
+ *
+ * @returns {{ ok: false, retryable: boolean, deferred?: boolean,
+ *             retryAfterMs?: number|null, label: string }}
+ */
+function classifyRejection(status, body, headers) {
+  const code = body && typeof body.code === "string" ? body.code : "unavailable";
+  const message = body && typeof body.message === "string" ? body.message : null;
+
+  // 1. A temporary budget. Checked before anything else, because the
+  //    SQL raises it as code `rejected` — the same code a genuine
+  //    refusal uses — and only the message tells them apart.
+  if (
+    status === 429 ||
+    code === "rate_limited" ||
+    (code === "rejected" && message && RATE_LIMIT_MESSAGE.test(message))
+  ) {
+    return {
+      ok: false,
+      retryable: true,
+      deferred: true,
+      retryAfterMs: parseRetryAfter(headers),
+      label: `rate_limited: ${message || `submit ${status}`}`,
+    };
+  }
+
+  // 2. Everything else: identical rule to KioskRequestError.retryable.
+  //    A body that is not a JSON object counts as `unavailable`, which
+  //    is what the page engine calls it too.
+  const retryable = RETRYABLE_CODES.has(code) || RETRYABLE_STATUSES.has(status);
+  return { ok: false, retryable, label: code };
+}
+
+/**
+ * One attempt at POST /api/kiosk/submit.
+ *
+ * Never throws: every failure is turned into a verdict, so the caller
+ * can classify instead of guessing from an error string.
+ */
+async function submitOnce(payload) {
+  let response;
+  try {
+    response = await fetch("/api/kiosk/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    });
+  } catch {
+    // No connection at all. Worth another attempt.
+    return { ok: false, retryable: true, label: "network" };
+  }
+
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok || (body && body.ok === false)) {
+    return classifyRejection(response.status, body, response.headers);
+  }
+
+  const result = body && (body.result || body);
+
+  // A 200 without a tracking number means the function ran but did not
+  // confirm. Treating that as success is exactly the bug the idempotency
+  // key exists to prevent, and treating it as terminal would strand a
+  // filing the server may already hold — so it is retried, and the next
+  // attempt returns the real row.
+  if (!result || !result.reference_number) {
+    return { ok: false, retryable: true, label: "unconfirmed" };
+  }
+
+  return { ok: true, result };
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
@@ -298,12 +432,29 @@ async function drainQueue() {
     .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
 
   for (const row of pending) {
-    const attempts = (row.attemptCount || 0) + 1;
-    if (attempts > MAX_ATTEMPTS) continue;
+    // The same device-wide deferral the page engine applies: while the
+    // fingerprint's submit budget is spent, every row would be refused
+    // by the same wall, so nothing is sent and the browser is asked to
+    // wake us again later rather than spinning on a closed door.
+    if (Date.now() < rateLimitedUntil) {
+      summary.retryable = true;
+      summary.reason = "rate limited";
+      break;
+    }
+
+    const previousAttempts = row.attemptCount || 0;
+    const attempts = previousAttempts + 1;
+    if (attempts > MAX_ATTEMPTS) {
+      // Already past the budget. Park it exactly as the page engine
+      // parks an entry whose attempts are exhausted, instead of leaving
+      // it in sync_failed where neither engine would look again.
+      await putState(db, row.id, STATE_NEEDS_ATTENTION, "retries exhausted", "increment");
+      continue;
+    }
 
     // Respect the same backoff the foreground drain uses, so a queue
     // that is being retried by both does not double its request rate.
-    const delay = BACKOFF_MS[Math.min(row.attemptCount || 0, BACKOFF_MS.length - 1)];
+    const delay = BACKOFF_MS[Math.min(previousAttempts, BACKOFF_MS.length - 1)];
     if (delay > 0) await sleep(delay);
 
     let payload = null;
@@ -315,7 +466,7 @@ async function drainQueue() {
       // Undecryptable. The ciphertext is still here, so it is left in
       // place and flagged rather than deleted: silently dropping a
       // citizen's complaint is the one outcome never acceptable.
-      await putState(db, row.id, STATE_NEEDS_ATTENTION, row, "cannot decrypt");
+      await putState(db, row.id, STATE_NEEDS_ATTENTION, "cannot decrypt", "increment");
       continue;
     }
 
@@ -332,60 +483,56 @@ async function drainQueue() {
         db,
         row.id,
         STATE_NEEDS_ATTENTION,
-        row,
-        "queued evidence cannot be sent from the service worker"
+        "queued evidence cannot be sent from the service worker",
+        "increment"
       );
       continue;
     }
 
-    await putState(db, row.id, STATE_SYNCING, row, null, attempts);
+    await putState(db, row.id, STATE_SYNCING, null, "increment");
 
-    let result = null;
-    try {
-      const response = await fetch("/api/kiosk/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        cache: "no-store",
-      });
+    const outcome = await submitOnce(payload);
 
-      if (!response.ok) {
-        throw new Error(`submit ${response.status}`);
-      }
+    if (outcome.ok) {
+      // Confirmed. Only now is the ciphertext disposable.
+      await deleteSubmission(db, row.id);
+      summary.synced += 1;
 
-      const body = await response.json();
-      result = body && (body.result || body);
+      // Tell any open kiosk tab, so a citizen looking at the offline
+      // receipt sees it flip to synced without reloading.
+      broadcast({ type: "kiosk:synced", tracking: outcome.result.reference_number });
+      continue;
+    }
 
-      // A 200 without a tracking number means the function ran but did
-      // not confirm. Treating that as success is exactly the bug the
-      // idempotency key exists to prevent.
-      if (!result || !result.reference_number) {
-        throw new Error("submit not confirmed");
-      }
-    } catch {
-      // Anything that is not a 4xx is worth another attempt. A 4xx means
-      // the payload itself is unacceptable and retrying forever would
-      // block the queue behind it.
-      await putState(
-        db,
-        row.id,
-        attempts >= MAX_ATTEMPTS ? STATE_NEEDS_ATTENTION : STATE_FAILED,
-        row,
-        "background sync failed",
-        attempts
-      );
+    if (outcome.deferred) {
+      // A rate limit is a deferral, not a failure: the payload is fine
+      // and the window rolls over by itself, so the attempt budget is
+      // handed back untouched.
+      rateLimitedUntil = Date.now() + deferMs(outcome.retryAfterMs);
+      await putState(db, row.id, STATE_FAILED, outcome.label, "rollback");
       summary.retryable = true;
-      summary.reason = "submit failed";
+      summary.reason = "rate limited";
       continue;
     }
 
-    // Confirmed. Only now is the ciphertext disposable.
-    await deleteSubmission(db, row.id);
-    summary.synced += 1;
+    if (!outcome.retryable) {
+      // The payload itself is unacceptable. Retrying it would block the
+      // queue behind a row that can never succeed, so it is parked for
+      // staff attention — the same verdict the page engine reaches.
+      await putState(db, row.id, STATE_NEEDS_ATTENTION, outcome.label, "keep");
+      continue;
+    }
 
-    // Tell any open kiosk tab, so a citizen looking at the offline
-    // receipt sees it flip to synced without reloading.
-    broadcast({ type: "kiosk:synced", tracking: result.reference_number });
+    // Transient. Try again later; past the budget, park it.
+    await putState(
+      db,
+      row.id,
+      attempts >= MAX_ATTEMPTS ? STATE_NEEDS_ATTENTION : STATE_FAILED,
+      outcome.label,
+      "keep"
+    );
+    summary.retryable = true;
+    summary.reason = outcome.label;
   }
 
   return summary;
@@ -445,18 +592,65 @@ function openJson(sealed, key) {
     .then((plaintext) => JSON.parse(new TextDecoder().decode(plaintext)));
 }
 
-function putState(db, id, state, row, error, attemptCount) {
+/**
+ * Writes a state change against the LATEST stored record.
+ *
+ * The drain holds rows read at the start of its pass; between that read
+ * and this write the page engine may have moved the row on, parked it,
+ * or the server may have confirmed it and removed it. Writing the old
+ * snapshot back would resurrect a confirmed filing, un-park one a person
+ * is looking at, or roll the attempt budget backwards — so the record is
+ * re-read inside this transaction and the write is based on that:
+ *
+ *   - gone            → no write (never resurrect a confirmed filing)
+ *   - needs_attention → no write (a parked verdict outranks a stale one)
+ *   - otherwise       → the latest record, updated per `attemptMode`:
+ *       "increment" count this attempt (syncing, and the
+ *                                pre-send parks that never sent)
+ *                         "keep"     leave the count the syncing write set
+ *                         "rollback" hand back the attempt the rate
+ *                                limit refused to open
+ *
+ * Resolves `true` only once the transaction has committed with a write,
+ * `false` when the write was skipped; transaction errors and aborts
+ * reject.
+ */
+function putState(db, id, state, error, attemptMode) {
+  if (attemptMode !== "increment" && attemptMode !== "keep" && attemptMode !== "rollback") {
+    return Promise.reject(new Error(`putState: unknown attempt mode "${attemptMode}"`));
+  }
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_SUBMISSIONS, "readwrite");
-    tx.objectStore(STORE_SUBMISSIONS).put({
-      ...row,
-      state,
-      lastError: error ? String(error).slice(0, 500) : row.lastError,
-      attemptCount:
-        attemptCount ?? (error ? (row.attemptCount || 0) + 1 : row.attemptCount || 0),
-      updatedAt: new Date().toISOString(),
-    });
-    tx.oncomplete = () => resolve();
+    const store = tx.objectStore(STORE_SUBMISSIONS);
+    let written = false;
+
+    const getReq = store.get(id);
+    getReq.onsuccess = () => {
+      const current = getReq.result;
+      // Skipped: the filing is already gone (confirmed and removed by
+      // the page, or an earlier drain), or it is parked for a person and
+      // a stale snapshot may not overrule that verdict.
+      if (!current || current.state === STATE_NEEDS_ATTENTION) return;
+
+      const base = current.attemptCount || 0;
+      const attemptCount =
+        attemptMode === "increment" ? base + 1 :
+        attemptMode === "rollback" ? Math.max(0, base - 1) :
+        base;
+
+      store.put({
+        ...current,
+        state,
+        lastError: error ? String(error).slice(0, 500) : current.lastError,
+        attemptCount,
+        updatedAt: new Date().toISOString(),
+      });
+      written = true;
+    };
+    getReq.onerror = () => reject(getReq.error);
+    // Resolving only on commit means a `true` answer is a durable write.
+    tx.oncomplete = () => resolve(written);
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error || new Error("aborted"));
   });

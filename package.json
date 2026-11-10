@@ -11,6 +11,7 @@
     "test:reklamo": "node scripts/test-reklamo.mjs",
     "test:actions": "node scripts/test-actions.mjs",
     "test:kiosk-sms": "node scripts/test-kiosk-sms.mjs",
+    "test:kiosk-sync": "node scripts/test-kiosk-offline-sync.mjs",
     "test:deployment": "node --test scripts/test-classification-save.mjs scripts/test-categorization-stage.mjs scripts/test-kiosk-origin.mjs scripts/test-ml-integration.mjs scripts/test-schedule-error-message.mjs"
   },
   "dependencies": {
